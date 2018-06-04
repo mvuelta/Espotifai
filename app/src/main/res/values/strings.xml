@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Espotifai</string>
+    <string name="user">Mauro</string>
+    <string name="add">Agregar</string>
+    <string name="settings">Settings</string>
+    <string name="rec">Grabar</string>
+    <string name="play">Reproducir</string>
+    <string name="stop">Stop</string>
+
+</resources>
