@@ -13,8 +13,11 @@
         android:layout_marginStart="8dp"
         android:layout_marginTop="10dp"
         android:ems="10"
-        android:inputType="textPersonName"
+        android:fontFamily="sans-serif-condensed"
+        android:gravity="center_vertical"
+        android:inputType="textNoSuggestions"
         android:text="Name"
+        android:textStyle="italic"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

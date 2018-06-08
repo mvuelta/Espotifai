@@ -4,7 +4,10 @@
         <ListPreference
             android:key="calidad"
             android:title="Elegir calidad"
-            android:summary="Selecciona la calidad de la grabacion" />
+            android:summary="Selecciona la calidad de la grabacion"
+            android:dialogTitle="Indicar Color"
+            android:entries="@array/calidad"
+            android:entryValues="@array/codigocalidad" />
     </PreferenceCategory>
 
 </PreferenceScreen>

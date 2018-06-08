@@ -1,19 +1,15 @@
 package com.example.mauro.espotifai;
 
-import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
-import android.content.pm.PackageManager;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Environment;
-import android.support.annotation.RequiresApi;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
+import android.preference.PreferenceManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,12 +20,10 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.support.v7.app.AppCompatActivity;
 
 import java.io.IOException;
 import java.util.ArrayList;
-
-import static android.support.v4.app.ActivityCompat.requestPermissions;
-import static android.support.v4.content.PermissionChecker.checkSelfPermission;
 
 public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.GrabacionViewHolder> implements View.OnClickListener {
 
@@ -37,20 +31,17 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
     private View.OnClickListener listener;
     public static Activity activity;
 
-    //Codigos de permisos
-    final private static int REQUEST_CODE_MIC = 123;
-    final private static int REQUEST_CODE_SD = 321;
-
     public static MediaRecorder mediaRecorder;
     public static MediaPlayer mediaPlayer;
-
-    public static RequesterPermissions per = new RequesterPermissions(activity);
 
     //Path del archivo de audio
     public static String fichero;
     public static String ficheroPath = Environment.
             getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/";
 
+    private static int quality;
+
+    //Constructor
     public AdaptadorGrabacion(ArrayList<Grabacion> datos, Activity c) {
         this.activity = c;
         this.datos = datos;
@@ -58,6 +49,7 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
 
     @Override
     public GrabacionViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+
         View itemView = LayoutInflater.from(parent.getContext()).inflate(R.layout.recitem_grabacion, parent, false);
 
         itemView.setOnClickListener(this);
@@ -91,9 +83,6 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
 
         private static final String LOG_TAG = "Grabadora";
 
-        String permissions[] = {Manifest.permission.RECORD_AUDIO/*, Manifest.permission.WRITE_EXTERNAL_STORAGE*/};
-
-
         @TargetApi(Build.VERSION_CODES.M)
         public GrabacionViewHolder(final View itemView, final Activity activity) {
             super(itemView);
@@ -106,7 +95,7 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
             stop = (Button)itemView.findViewById(R.id.btnStop);
 
             rec.setEnabled(true);
-            play.setEnabled(false);
+            play.setEnabled(true);
             stop.setEnabled(false);
 
             /** -------------Inicio que funcion realiza cada boton --------------**/
@@ -114,38 +103,40 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
                 @Override
                 public void onClick(View v) {
                     nombre.setTextColor(Color.MAGENTA);
-                    fichero = ficheroPath + nombre.getText() + ".3gp";
 
-                    RequesterPermissions per = new RequesterPermissions(activity);
+                    SharedPreferences pref =
+                            PreferenceManager.getDefaultSharedPreferences(activity.getApplicationContext());
 
-                    //Recibo el estado del permiso
-                    //boolean micPermission = rqst.checkIfPermissionIsGranted(Manifest.permission.RECORD_AUDIO);
-                    int micPermission = ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO);
-                    if(micPermission != PackageManager.PERMISSION_GRANTED) {    //Pregunto por el estado
-                        //rqst.requestForPermission(permissions);
-                        ActivityCompat.requestPermissions(activity,
-                                new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_CODE_MIC); //Pido al usuario permiso
-                        int sdPermission = ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                        if (sdPermission != PackageManager.PERMISSION_GRANTED) {
-                            ActivityCompat.requestPermissions(activity,
-                                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_SD);
-                            return;
-                        }
-                    } else {
-                            mediaRecorder = new MediaRecorder();
-                            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-                            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                            mediaRecorder.setOutputFile(fichero);
-                            try {
-                                mediaRecorder.prepare();
-                                mediaRecorder.start();
-                                Toast.makeText(v.getContext(), "OK", Toast.LENGTH_SHORT);
-                            } catch (IOException e) {
-                                Log.e(LOG_TAG, "Fallo en grabación");
-                            } catch (IllegalStateException ise) {
-                                //Hacer algo.
-                            }
+                    //  - Calidad Normal: AMR_NB
+                    //  - Mejor Calidad: AMR_WB
+                    //  - Alta Calidad: AAC_LC
+                    String cal = pref.getString("calidad", "");
+                    if (cal.equals("NORMAL")) {
+                        quality = MediaRecorder.AudioEncoder.AMR_NB;
+                    }
+                    if (cal.equals("MEJOR")) {
+                        quality = MediaRecorder.AudioEncoder.AMR_WB;
+                    }
+                    if (cal.equals("ALTA")) {
+                        quality = MediaRecorder.AudioEncoder.AAC;
+                    }
+                    SharedPreferences.Editor editor = pref.edit();
+                    editor.apply();
+
+                    fichero = ficheroPath + nombre.getText().toString() + ".3gp";
+                    mediaRecorder = new MediaRecorder();
+                    mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                    mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+                    mediaRecorder.setAudioEncoder(quality);
+                    mediaRecorder.setOutputFile(fichero);
+                    try {
+                        mediaRecorder.prepare();
+                        mediaRecorder.start();
+                        Toast.makeText(v.getContext(), "OK", Toast.LENGTH_SHORT).show();
+                    } catch (IOException e) {
+                        Log.e(LOG_TAG, "Fallo en grabación");
+                    } catch (IllegalStateException ise) {
+                        //Hacer algo.
                     }
 
                     rec.setEnabled(false);
@@ -161,19 +152,24 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
                     fichero = ficheroPath + nombre.getText() + ".3gp";
                     try {
                         mediaPlayer.setDataSource(fichero);
+                    } catch (IOException e) {
+                        //e.printStackTrace();
+                    }
+                    try {
                         mediaPlayer.prepare();
                         mediaPlayer.start();
-
-                        Toast.makeText(v.getContext(), "Reproduciendo...", Toast.LENGTH_LONG).show();
+                        Toast.makeText(v.getContext(), "Reproduciendo...", Toast.LENGTH_SHORT).show();
                     } catch (IOException e) {
-                        Log.e(LOG_TAG, "Fallo en reproducción");
-                    } catch (IllegalStateException ise) {
-                        //Informar algo.
+                        //Toast.makeText(v.getContext(), "No hay archivo de audio", Toast.LENGTH_SHORT).show();
+                        //e.printStackTrace();
+                    } catch (IllegalStateException e) {
+                        Toast.makeText(v.getContext(), "No hay archivo de audio", Toast.LENGTH_SHORT).show();
+                        //e.printStackTrace();
                     }
 
-                    rec.setEnabled(false);
+                    rec.setEnabled(true);
                     play.setEnabled(true);
-                    stop.setEnabled(true);
+                    stop.setEnabled(false);
                 }
             });
 
@@ -188,7 +184,7 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
                     stop.setEnabled(false);
                     play.setEnabled(true);
 
-                    Toast.makeText(v.getContext(), "Grabacion EXITOSA!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(v.getContext(), "Grabacion EXITOSA!", Toast.LENGTH_SHORT).show();
 
                 }
             });
@@ -226,6 +222,7 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
     //************** Fin click del item *********************//
 
     /******************** Clase para los permisos. Dentro del Adaptador *************/
+/*
 
     public static class RequesterPermissions extends AppCompatActivity {
         private final static String TAG = "RequesterPermissions";
@@ -280,7 +277,8 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
                 case REQUEST_CODE_SD:
                     if (grantResults[0] == PackageManager.PERMISSION_GRANTED) { //Si el permiso de la SD fue concedido comienzo a grabar...
                         Toast.makeText(activity, "Permiso otorgado", Toast.LENGTH_SHORT).show();
-                        /*                      mediaRecorder = new MediaRecorder();
+                        */
+/*                      mediaRecorder = new MediaRecorder();
                         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                         mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
 
@@ -296,7 +294,8 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
                         } catch (IllegalStateException ise) {
                             //Hacer algo.
                         }
-*/
+*//*
+
                     }
                     break;
                 default:
@@ -306,59 +305,8 @@ public class AdaptadorGrabacion extends RecyclerView.Adapter<AdaptadorGrabacion.
         }
 
 
-
-        //Opcion 2
-        /////////// Cuando pido permisos (requestForPermission) vengo aca, pregunto pregunto cual permiso "interrumpio"
-       /* @RequiresApi(api = Build.VERSION_CODES.M)
-        @Override
-        public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults)
-        {
-            switch (requestCode) {
-                case REQUEST_CODE_MIC:
-                    //RequesterPermissions per = new RequesterPermissions(this.activity);
-                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                        //Permiso de MICROFONO concedido
-                        //boolean sdPermission = per.checkIfPermissionIsGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                        int sdPermission = ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                        if (sdPermission != PackageManager.PERMISSION_GRANTED) {    //Si no consulte, pido permiso para grabar SD
-                            ActivityCompat.requestPermissions(activity,
-                                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_SD);
-                            Toast.makeText(activity, "Permiso MIC Concedido!", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                    } else {
-                        //Permiso denegado
-                        Toast.makeText(activity, "Permiso MIC Denegado!", Toast.LENGTH_SHORT).show();
-                    }
-                    break;
-                case REQUEST_CODE_SD:
-                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) { //Si el permiso de la SD fue concedido comienzo a grabar...
-                        Toast.makeText(activity, "Permiso otorgado", Toast.LENGTH_SHORT).show();
-                        mediaRecorder = new MediaRecorder();
-                        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-
-                        *//*  -Calidad Normal: AMR_NB - Mejor Calidad: AMR_WB - Alta Calidad: AAC_LC   *//*
-                        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
-                        mediaRecorder.setOutputFile(fichero);
-
-                        try {
-                            mediaRecorder.prepare();
-                            mediaRecorder.start();
-                        } catch (IOException e) {
-                            //Log.e(LOG_TAG, "Fallo en grabación");
-                        } catch (IllegalStateException ise) {
-                            //Hacer algo.
-                        }
-
-                    }
-                    break;
-                default:
-                    activity.onRequestPermissionsResult(requestCode, permissions, grantResults);
-            }
-        }*/
     }
-
+*/
 
     /****************************** Fin de la clase permisos ************************************/
 
